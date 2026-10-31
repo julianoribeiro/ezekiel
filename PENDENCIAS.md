@@ -53,7 +53,8 @@ Marque `[x]` ao concluir e registre a data. Referências de seção são da tese
   - [x] dependências fixadas (`requirements.lock`, Python 3.12) e ambiente automatizado (`scripts/setup_env.sh`: venv, instalação e testes) (2026-10-31);
   - [x] manifesto por execução (`ezekiel/manifest.py`): revisão git, SHA-256 do código, ambiente, SHA-256 dos logs e do `.meta.json`, configuração, sementes e comando. Gravado automaticamente pelos scripts (2026-10-31);
   - [ ] OCEL derivados (CC BY 4.0) publicados: o código já está no GitHub, mas os logs (`ocels/`, 14 GB) não cabem num repositório git. Publicar num depósito de dados (ex.: Zenodo, com DOI) e citar no README, com atribuição ao *The Public Jira Dataset*.
-  - [ ] README na raiz do repositório (objetivo, instalação, como reproduzir, origem e licença dos dados).
+  - [x] README na raiz do repositório (objetivo, hipóteses, dados, instalação, reprodução, estrutura, citação) (2026-10-31).
+  - [ ] Licença do código: escolher (ex.: MIT, como o código do *The Public Jira Dataset*) e adicionar `LICENSE`.
 - [ ] **Nova rodada completa** (16 repositórios, `por_papel` e `por_estagio`, H4) com o protótipo atualizado e atualização do capítulo de resultados.
   - Mudaram os resultados: ocupação dos servidores (termo β), corte de idade no ρ (restrição ativa) e R pelo estudo-piloto.
   - Com as opções novas desligadas, o resto é idêntico (regressão verificada em ZooKeeper e MariaDB).
