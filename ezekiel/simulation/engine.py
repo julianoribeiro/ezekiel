@@ -360,13 +360,13 @@ def run_replica(model: SimModel, seed: int) -> ReplicaResult:
 
     def case(cid: int, start: float, stage: str, stage_age: float,
              elapsed: float | None = None, parked_init: bool = False,
-             queue_elapsed: float | None = 0.0, cls: str | None = None):
+             queue_elapsed: float | None = 0.0, cls: str | None = None, wait0: float = 0.0):
         rng = random.Random(seed * 1_000_003 + cid)
         cod = rng.expovariate(1.0)
         started[0] += 1
         cls = cls or "—"
         bump_cls(cls, +1)
-        wait = 0.0
+        wait = wait0                      # espera acumulada antes do horizonte
         t_arrival = env.now - stage_age
         if parked_init:
             bump(stage, +1, cid)
@@ -540,6 +540,8 @@ def run_replica(model: SimModel, seed: int) -> ReplicaResult:
             c = c + (c[2], False)
         if len(c) == 5:
             c = c + (None,)   # sem informação de fila: caso em trabalho
+        if len(c) == 6:
+            c = c + (0.0,)    # sem espera acumulada
         return c
 
     classes = ((list(np.cumsum(list(model.class_probs.values()))), list(model.class_probs.keys()))
@@ -547,8 +549,8 @@ def run_replica(model: SimModel, seed: int) -> ReplicaResult:
     init_cls = list(model.initial_classes) + [None] * (len(model.initial_cases) - len(model.initial_classes))
     init = sorted(((_norm(c), k) for c, k in zip(model.initial_cases, init_cls) if c[0] in stages),
                   key=lambda x: -x[0][2])
-    for cid, ((stage, case_age, stage_age, elapsed, parked_init, q_el), k) in enumerate(init):
-        env.process(case(cid, -case_age, stage, stage_age, elapsed, parked_init, q_el, cls=k))
+    for cid, ((stage, case_age, stage_age, elapsed, parked_init, q_el, w0), k) in enumerate(init):
+        env.process(case(cid, -case_age, stage, stage_age, elapsed, parked_init, q_el, cls=k, wait0=w0))
     if model.arrival_rate > 0:
         env.process(arrivals())
 

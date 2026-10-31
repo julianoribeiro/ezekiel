@@ -139,18 +139,23 @@ def service_kaplan_meier(log: EventLog, stage: str, a: float, b: float) -> tuple
 
 def initial_cases(log: EventLog, t: float, stage_models: list[StageModel]) -> list[tuple]:
     """Estado inicial: (estágio, idade do caso, idade da visita, serviço já
-    decorrido, estacionado). Em estágios com fila/serviço separados, o
-    serviço decorrido é o tempo já passado em colunas de trabalho, e casos
-    parados na fila há mais que `queue_age_cap` ficam estacionados."""
+    decorrido, estacionado, fila já decorrida, espera acumulada). Em estágios
+    com fila/serviço separados, o serviço decorrido é o tempo já passado em
+    colunas de trabalho, e casos parados na fila há mais que `queue_age_cap`
+    ficam estacionados. A espera acumulada antes de t entra na espera do
+    caso, como a idade entra no lead time: sem ela, a espera simulada dos
+    casos iniciais só contaria o trecho dentro do horizonte."""
     by = {s.name: s for s in stage_models}
     st = log.state_at(t)
     st = st[st["stage"].isin(by)]
+    wait0 = log.case_wait_until(t)
     out = []
     split_stages = [n for n, m in by.items() if m.split]
     work_done = {n: log.phase_time_until(n, "work", t) for n in split_stages}
     queue_done = {n: log.phase_time_until(n, "queue", t) for n in split_stages}
     for row in st.itertuples(index=False):
         m = by[row.stage]
+        w0 = float(wait0.get(row.case, 0.0))
         if m.split:
             elapsed = float(work_done[row.stage].get(row.visit_id, 0.0))
             q_el = float(queue_done[row.stage].get(row.visit_id, 0.0))
@@ -159,9 +164,10 @@ def initial_cases(log: EventLog, t: float, stage_models: list[StageModel]) -> li
             # em fila: atraso exógeno residual condicionado ao já esperado;
             # em trabalho: a fila já passou (None)
             out.append((row.stage, float(row.case_age), float(row.stage_age), elapsed, parked,
-                        q_el if in_queue else None))
+                        q_el if in_queue else None, w0))
         else:
-            out.append((row.stage, float(row.case_age), float(row.stage_age), float(row.stage_age), False))
+            out.append((row.stage, float(row.case_age), float(row.stage_age), float(row.stage_age), False,
+                        None, w0))
     return out
 
 

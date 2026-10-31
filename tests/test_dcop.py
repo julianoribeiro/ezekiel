@@ -46,6 +46,18 @@ def test_pseudo_tree_rooted_at_constraint_on_chain():
     assert not any(pt.pseudo_parents.values())
 
 
+def test_disconnected_component_with_edge_converges():
+    """Raiz isolada e outro componente com aresta (a restrição ativa sem vizinhos)."""
+    agents = ["a", "b", "c"]
+    dom = {a: [0, 1] for a in agents}
+    binary = {("b", "c"): {(x, y): float(x != y) for x in [0, 1] for y in [0, 1]}}
+    inst = DCOPInstance(agents, dom, {"a": {0: 1.0, 1: 0.0}}, binary)
+    pt = build_pseudo_tree(inst, root="a")
+    assert pt.depth() == 2
+    ad = solve_adopt(inst, root="a", track_memory=False)
+    assert ad.converged and ad.cost == pytest.approx(brute_force(inst)[1])
+
+
 def test_isolated_agent_keeps_system_cost():
     """Com um só agente, a função objetivo deve conter o desempenho do sistema."""
     from ezekiel.dcop.costs import CostModel, CostSettings

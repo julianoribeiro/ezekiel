@@ -366,6 +366,14 @@ class EventLog:
         contrib = np.clip(np.minimum(sg["end"].fillna(np.inf).to_numpy(), T) - sg["start"].to_numpy(), 0.0, None)
         return pd.Series(contrib, index=sg["visit_id"].to_numpy()).groupby(level=0).sum()
 
+    def case_wait_until(self, T: float) -> pd.Series:
+        """Espera (fase de fila) acumulada por caso até o instante T, em todas
+        as visitas do caso — a mesma definição de `cases["wait"]`."""
+        sg = self.segments[self.segments["phase"] == "queue"]
+        contrib = np.clip(np.minimum(sg["end"].fillna(np.inf).to_numpy(), T) - sg["start"].to_numpy(), 0.0, None)
+        case = sg["visit_id"].map(self.visits.set_index("visit_id")["case"]).to_numpy()
+        return pd.Series(contrib, index=case).groupby(level=0).sum()
+
     def current_phase_at(self, t: float) -> pd.Series:
         """Fase (queue|work) do segmento ativo de cada visita no instante t."""
         sg = self.segments

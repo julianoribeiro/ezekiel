@@ -208,3 +208,18 @@ def test_shared_pool_lends_idle_capacity():
     m2 = _two_stage()
     m2.initial_cases = [("Development", 0.0, 0.0)] * 2
     assert np.allclose(sorted(run_replica(m2, seed=1).lead_times), [5.0, 10.0])
+
+
+def test_initial_case_keeps_wait_accrued_before_horizon():
+    """A espera acumulada antes de t entra na espera do caso, como a idade
+    entra no lead time (mesma definição do observado)."""
+    log = EventLog.from_transitions(pd.DataFrame(
+        [("A", "Backlog", 0.0, "Open"), ("A", "Development", 4.0, "In Progress"), ("A", "Deploy", 9.0, "Done")],
+        columns=["item", "stage", "t", "column"]))
+    assert log.case_wait_until(6.0).to_dict() == {"A#0": 4.0}
+    assert log.cases.set_index("case").loc["A#0", "wait"] == 4.0
+    st = [StageModel("Development", 1, [1.0], [0.0])]
+    m = SimModel(st, arrival_rate=0.0, entry_probs={"Development": 1.0}, routing={"Development": {DONE: 1.0}},
+                 initial_cases=[("Development", 6.0, 2.0, 0.0, False, None, 4.0)], horizon=10.0)
+    r = run_replica(m, seed=1)
+    assert np.allclose(r.lead_times, [7.0]) and np.allclose(r.waits, [4.0])

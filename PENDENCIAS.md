@@ -55,9 +55,23 @@ Marque `[x]` ao concluir e registre a data. Referências de seção são da tese
   - [ ] OCEL derivados (CC BY 4.0) publicados: o código já está no GitHub, mas os logs (`ocels/`, 14 GB) não cabem num repositório git. Publicar num depósito de dados (ex.: Zenodo, com DOI) e citar no README, com atribuição ao *The Public Jira Dataset*.
   - [x] README na raiz do repositório (objetivo, hipóteses, dados, instalação, reprodução, estrutura, citação) (2026-10-31).
   - [ ] Licença do código: escolher (ex.: MIT, como o código do *The Public Jira Dataset*) e adicionar `LICENSE`.
-- [ ] **Nova rodada completa** (16 repositórios, `por_papel` e `por_estagio`, H4) com o protótipo atualizado e atualização do capítulo de resultados.
+- [x] **Nova rodada completa** (2026-10-31): 16 repositórios, `por_papel` e `por_estagio`, mais H4, com o protótipo atualizado. Resultados em `output/hypotheses/`. Capítulo `resultados_preliminares.tex` atualizado com:
+  - estudo-piloto de R;
+  - métricas complementares de H1;
+  - descoberta de processos;
+  - classes de serviço;
+  - monitoramento;
+  - novos números de H2 e H4.
+
+  A metodologia (`sec:operacionalizacao_prototipo`) também foi atualizada.
+  - Conclusões: H1 rejeitada em 14 de 14 e H2/H3 validadas em 0 de 14 nas duas granularidades. O MongoDB por estágio deixou de ser validado após Holm (−1,84%, p = 0,022 sem ajuste e 0,308 com ajuste). H4 sem mudança.
+  - Achado para a E1: o piloto por precisão dá R = 10. Com Holm sobre 14 repositórios, o menor p ajustado do Wilcoxon fica em cerca de 0,014, então falta um requisito de poder.
   - Mudaram os resultados: ocupação dos servidores (termo β), corte de idade no ρ (restrição ativa) e R pelo estudo-piloto.
   - Com as opções novas desligadas, o resto é idêntico (regressão verificada em ZooKeeper e MariaDB).
+  - Correções feitas na primeira tentativa da rodada (2026-10-31):
+    - O monitoramento falhava em `por_estagio` (NEXUS, SAK) quando a reotimização mudava o conjunto de agentes. Também falhava `PseudoTree.depth` com um componente desconexo de mais de um agente.
+    - **A espera simulada dos casos iniciais começava em zero**, enquanto o *lead time* conta a idade do caso. A espera observada inclui o histórico do caso. Por isso a espera média falhava nos 14 repositórios (erro de 55–98%). Isso também enviesava o termo WT da função de custo e a eficiência de fluxo.
+    - Agora o caso inicial carrega a espera acumulada até t. Com isso, o erro da espera cai para 3% no ZooKeeper e para 22% no MariaDB. Rodada refeita; a anterior ficou em `output/hypotheses_e4_espera_sem_historico/`.
 
 ## 2. Decisões com o orientador (E1)
 

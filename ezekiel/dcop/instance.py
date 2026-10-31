@@ -57,10 +57,9 @@ class PseudoTree:
     order: list[str]   # pré-ordem da DFS
 
     def depth(self) -> int:
-        d = {self.root: 0}
-        for a in self.order:
-            if self.parent[a] is not None:
-                d[a] = d[self.parent[a]] + 1
+        d = {}
+        for a in self.order:       # pré-ordem: o pai vem antes; desconexos são raízes
+            d[a] = 0 if self.parent[a] is None else d[self.parent[a]] + 1
         return max(d.values()) + 1
 
 

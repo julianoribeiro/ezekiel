@@ -108,9 +108,10 @@ def run_monitoring(log: EventLog, organization: Organization, start: float, end:
         states = agent_states(log, org, t, ms.window_days)
         if prev is not None:
             for a in states:
-                if states[a]["wt_mean"] is None:            # ausente: último observado
+                if states[a]["wt_mean"] is None and a in prev:   # ausente: último observado
                     states[a]["wt_mean"] = prev[a]["wt_mean"]
-        deltas = {a: _delta(prev[a], states[a], ms) for a in states} if prev else {}
+        # agentes novos após uma reotimização não têm janela anterior
+        deltas = {a: _delta(prev[a], states[a], ms) for a in states if a in prev} if prev else {}
         for a in org.agents:
             streak[a] = streak.get(a, 0) + 1 if deltas.get(a, {}).get("exceeds") else 0
         trailing = identify_constraint(log, org, max(t - ms.constraint_days, log.t_min), t, s.constraint)
