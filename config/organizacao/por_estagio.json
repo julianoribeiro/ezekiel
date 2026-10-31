@@ -1,0 +1,13 @@
+{
+  "name": "por_estagio",
+  "description": "Granularidade de comparação: cada estágio de trabalho tratado como unidade decisória. NÃO corresponde à definição de agente da tese (unidade organizacional); serve apenas para comparar granularidades (metodologia, ameaça 'Representação dos agentes').",
+  "agents": [
+    {"name": "Development", "stages": ["Development"], "responsibility": "Estágio de desenvolvimento.", "local_information": ["WIP e permanência do estágio"], "evidence": "premissa de granularidade: estágio como unidade"},
+    {"name": "Code Review", "stages": ["Code Review"], "responsibility": "Estágio de revisão de código.", "local_information": ["WIP e permanência do estágio"], "evidence": "premissa de granularidade: estágio como unidade"},
+    {"name": "QA Testing", "stages": ["QA Testing"], "responsibility": "Estágio de testes.", "local_information": ["WIP e permanência do estágio"], "evidence": "premissa de granularidade: estágio como unidade"},
+    {"name": "Staging", "stages": ["Staging"], "responsibility": "Estágio de validação em ambiente controlado.", "local_information": ["WIP e permanência do estágio"], "evidence": "premissa de granularidade: estágio como unidade"}
+  ],
+  "environment": {
+    "Backlog": "fila de entrada: demanda ainda não puxada"
+  }
+}

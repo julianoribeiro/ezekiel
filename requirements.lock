@@ -1,0 +1,15 @@
+# Ambiente fixado (versões usadas na rodada exploratória de 2026-10). Python 3.12.
+# Instalação: scripts/setup_env.sh
+pm4py==2.7.16
+simpy==4.1.1
+pandas==2.3.0
+numpy==2.3.0
+scipy==1.16.0
+pydantic==2.11.7
+pydantic-settings==2.13.1
+python-dotenv==1.1.1
+fastapi==0.110.1
+uvicorn==0.25.0
+pytest==8.4.1
+# só para reconverter o The Public Jira Dataset (dump do MongoDB)
+pymongo==4.5.0

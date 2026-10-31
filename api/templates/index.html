@@ -1,0 +1,1590 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Ezekiel — Otimização de Processos</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+:root {
+  --bg: #f8f7f4; --surface: #ffffff; --border: #e0ded6;
+  --text: #1a1a1a; --muted: #888780; --faint: #f1efe8;
+  --blue: #185FA5; --blue-bg: #E6F1FB; --blue-dark: #0C447C;
+  --green: #3B6D11; --green-bg: #EAF3DE;
+  --amber: #854F0B; --amber-bg: #FAEEDA;
+  --red: #A32D2D; --red-bg: #FCEBEB;
+  --radius: 10px; --radius-sm: 6px;
+}
+body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+       font-size: 13px; color: var(--text); background: var(--bg); min-height: 100vh; }
+
+/* ── Layout ── */
+.app { max-width: 1100px; margin: 0 auto; padding: 20px 16px; }
+.header { display: flex; align-items: center; justify-content: space-between;
+          padding-bottom: 14px; border-bottom: 1px solid var(--border); margin-bottom: 18px; }
+.header-title { font-size: 15px; font-weight: 600; }
+.header-sub { font-size: 11px; color: var(--muted); margin-top: 2px; }
+
+/* ── Botão run ── */
+.btn { padding: 8px 18px; border-radius: var(--radius-sm); font-size: 12px; font-weight: 500;
+       cursor: pointer; border: 1px solid var(--border); background: var(--surface);
+       color: var(--text); transition: all .15s; white-space: nowrap; }
+.btn:hover { background: var(--faint); }
+.btn-primary { background: var(--blue); border-color: var(--blue); color: #fff; }
+.btn-primary:hover { background: var(--blue-dark); }
+.btn:disabled { opacity: .5; cursor: not-allowed; }
+
+/* ── Progress bar ── */
+.progress-bar { height: 3px; background: var(--border); border-radius: 2px; margin-bottom: 18px; overflow: hidden; }
+.progress-fill { height: 100%; width: 0; background: var(--blue); border-radius: 2px; transition: width .4s ease; }
+.progress-label { font-size: 11px; color: var(--muted); margin-top: 5px; min-height: 16px; }
+
+/* ── Tabs ── */
+.tabs { display: flex; gap: 0; border-bottom: 1px solid var(--border); margin-bottom: 20px; }
+.tab { padding: 9px 16px; font-size: 12px; font-weight: 500; cursor: pointer; color: var(--muted);
+       border-bottom: 2px solid transparent; transition: all .15s; user-select: none; }
+.tab.active { color: var(--text); border-bottom-color: var(--text); }
+.tab:hover:not(.active) { color: var(--text); background: var(--faint); }
+.panel { display: none; }
+.panel.active { display: block; }
+
+/* ── Cards e grids ── */
+.card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius);
+        padding: 16px; margin-bottom: 14px; }
+.card-title { font-size: 12px; font-weight: 600; margin-bottom: 12px; }
+.section-label { font-size: 10px; font-weight: 600; letter-spacing: .07em;
+                 text-transform: uppercase; color: var(--muted); margin-bottom: 10px; }
+.grid-4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-bottom: 16px; }
+.grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-bottom: 14px; }
+.grid-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
+
+/* ── Métricas ── */
+.metric { background: var(--faint); border-radius: var(--radius-sm); padding: 12px;
+          text-align: center; }
+.metric-val { font-size: 24px; font-weight: 600; line-height: 1.1; }
+.metric-label { font-size: 10px; color: var(--muted); margin-top: 3px; }
+.metric-delta { font-size: 11px; margin-top: 3px; }
+.c-green { color: var(--green); } .c-red { color: var(--red); }
+.c-amber { color: var(--amber); } .c-blue { color: var(--blue); } .c-muted { color: var(--muted); }
+
+/* ── Badges ── */
+.badge { display: inline-block; font-size: 10px; font-weight: 600; padding: 2px 8px;
+         border-radius: 99px; }
+.b-green { background: var(--green-bg); color: var(--green); }
+.b-amber { background: var(--amber-bg); color: var(--amber); }
+.b-blue  { background: var(--blue-bg); color: var(--blue); }
+.b-red   { background: var(--red-bg); color: var(--red); }
+.b-gray  { background: var(--faint); color: var(--muted); }
+
+/* ── Pipeline (5 camadas) ── */
+.pipeline-strip { display: flex; gap: 0; margin-bottom: 16px; overflow-x: auto; }
+.layer { flex: 1; min-width: 120px; border: 1px solid var(--border); border-right: none;
+         padding: 12px 10px; background: var(--surface); }
+.layer:last-child { border-right: 1px solid var(--border); border-radius: 0 var(--radius) var(--radius) 0; }
+.layer:first-child { border-radius: var(--radius) 0 0 var(--radius); }
+.layer-num { font-size: 10px; color: var(--muted); margin-bottom: 3px; }
+.layer-name { font-size: 12px; font-weight: 600; margin-bottom: 4px; }
+.layer-desc { font-size: 11px; color: var(--muted); line-height: 1.4; }
+.layer-status { margin-top: 8px; }
+.layer.running { background: var(--blue-bg); border-color: var(--blue); }
+.layer.done { }
+.layer.pending { opacity: .55; }
+
+/* ── DFG SVG container ── */
+#dfg-container, #dfg-mining { min-height: 160px; }
+
+/* ── Tabelas ── */
+table { width: 100%; border-collapse: collapse; font-size: 12px; }
+th { text-align: left; padding: 6px 8px; color: var(--muted); font-weight: 500;
+     font-size: 10px; text-transform: uppercase; letter-spacing: .05em;
+     border-bottom: 1px solid var(--border); }
+td { padding: 7px 8px; border-bottom: 1px solid var(--faint); }
+tr:last-child td { border-bottom: none; }
+.row-constraint td { color: var(--amber); font-weight: 500; }
+
+/* ── Sliders (what-if) ── */
+.slider-group { margin-bottom: 14px; }
+.slider-top { display: flex; justify-content: space-between; margin-bottom: 5px; }
+.slider-name { font-size: 12px; color: var(--muted); }
+.slider-val { font-size: 12px; font-weight: 600; color: var(--blue); }
+input[type=range] { width: 100%; accent-color: var(--blue); cursor: pointer; }
+
+/* ── Agente DCOP ── */
+.agent-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px; margin-bottom: 14px; }
+.agent-card { border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 10px; }
+.agent-card.constraint { border-color: var(--amber); background: var(--amber-bg); }
+.agent-name { font-size: 11px; font-weight: 600; margin-bottom: 8px; }
+.agent-row { display: flex; justify-content: space-between; font-size: 11px;
+             color: var(--muted); margin-bottom: 3px; }
+.agent-row span:last-child { color: var(--text); font-weight: 500; }
+
+/* ── Log de mensagens DCOP ── */
+.msg-log { font-family: 'SF Mono', Consolas, monospace; font-size: 10px;
+           max-height: 200px; overflow-y: auto; }
+.msg-line { padding: 3px 0; border-bottom: 1px solid var(--faint); display: flex; gap: 8px; }
+.msg-from { color: var(--muted); min-width: 120px; }
+.msg-type { padding: 1px 5px; border-radius: 3px; font-weight: 600; font-size: 9px; }
+.t-value  { background: var(--blue-bg); color: var(--blue); }
+.t-cost   { background: var(--amber-bg); color: var(--amber); }
+.t-threshold { background: var(--green-bg); color: var(--green); }
+.t-constraint_state { background: #EEEDFE; color: #534AB7; }
+
+/* ── Cenários S0/S1/S2 ── */
+.scenario-card { border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 14px; }
+.scenario-card.best { border-color: var(--blue); border-width: 2px; }
+.sc-label { font-size: 12px; font-weight: 600; margin-bottom: 8px;
+            display: flex; align-items: center; gap: 6px; }
+.sc-row { display: flex; justify-content: space-between; padding: 4px 0;
+          border-bottom: 1px solid var(--faint); font-size: 12px; }
+.sc-row:last-child { border-bottom: none; }
+.sc-key { color: var(--muted); }
+
+/* ── Hipóteses ── */
+.hyp-list { display: flex; flex-direction: column; gap: 8px; }
+.hyp-item { display: flex; align-items: flex-start; gap: 10px; padding: 10px 12px;
+            border-radius: var(--radius-sm); background: var(--faint); }
+.hyp-icon { font-size: 15px; flex-shrink: 0; margin-top: 1px; }
+.hyp-name { font-weight: 600; font-size: 12px; }
+.hyp-desc { font-size: 11px; color: var(--muted); margin-top: 2px; }
+.hyp-item.valid { background: var(--green-bg); }
+.hyp-item.invalid { background: var(--red-bg); }
+
+/* ── Empty state ── */
+.empty { text-align: center; padding: 40px; color: var(--muted); font-size: 12px; }
+
+/* ── Chart container ── */
+.chart-wrap { position: relative; height: 220px; }
+.chart-wrap-tall { position: relative; height: 280px; }
+
+/* ── Spinner ── */
+@keyframes spin { to { transform: rotate(360deg); } }
+.spinner { display: inline-block; width: 14px; height: 14px; border: 2px solid var(--border);
+           border-top-color: var(--blue); border-radius: 50%; animation: spin .7s linear infinite; }
+
+@media (max-width: 700px) {
+  .grid-4 { grid-template-columns: repeat(2, 1fr); }
+  .grid-2 { grid-template-columns: 1fr; }
+  .grid-3 { grid-template-columns: 1fr; }
+  .agent-grid { grid-template-columns: repeat(2, 1fr); }
+}
+</style>
+</head>
+<body>
+<div class="app">
+
+  <!-- ── Header ── -->
+  <div class="header">
+    <div>
+      <div class="header-title">Ezekiel — Otimização de Processos Interdependentes</div>
+      <div class="header-sub">Process Mining · OCEL 2.0 · SimPy · DCOP/ADOPT · Juliano de Paulo Ribeiro</div>
+    </div>
+    <button class="btn btn-primary" id="btn-run" onclick="runPipeline()">▶ Executar Pipeline</button>
+  </div>
+
+  <!-- ── Progress ── -->
+  <div class="progress-bar"><div class="progress-fill" id="prog-fill"></div></div>
+  <div class="progress-label" id="prog-label"></div>
+
+  <!-- ── Tabs ── -->
+  <div class="tabs">
+    <div class="tab active" data-tab="pipeline">Pipeline</div>
+    <div class="tab" data-tab="mining">Process Mining</div>
+    <div class="tab" data-tab="simulacao">Simulação</div>
+    <div class="tab" data-tab="dcop">DCOP / Agentes</div>
+    <div class="tab" data-tab="resultados">Resultados</div>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════════════════════════ -->
+  <!-- TAB: PIPELINE                                                       -->
+  <!-- ═══════════════════════════════════════════════════════════════════ -->
+  <div class="panel active" id="panel-pipeline">
+
+    <div class="section-label">Arquitetura de 5 camadas</div>
+    <div class="pipeline-strip" id="pipeline-strip">
+      <div class="layer pending" id="layer-1">
+        <div class="layer-num">Camada 1+2</div>
+        <div class="layer-name">Extração / OCEL</div>
+        <div class="layer-desc">Carrega arquivos OCEL 2.0 da pasta ocels/</div>
+        <div class="layer-status"><span class="badge b-gray">Aguardando</span></div>
+      </div>
+      <div class="layer pending" id="layer-2">
+        <div class="layer-num">Camada 3</div>
+        <div class="layer-name">Process Mining</div>
+        <div class="layer-desc">Inductive Miner · ToC · a* = argmax(ρ·E[W])</div>
+        <div class="layer-status"><span class="badge b-gray">Aguardando</span></div>
+      </div>
+      <div class="layer pending" id="layer-3">
+        <div class="layer-num">Camada 4a</div>
+        <div class="layer-name">Simulação</div>
+        <div class="layer-desc">SimPy · S0 / S1 / S2 · 30 réplicas</div>
+        <div class="layer-status"><span class="badge b-gray">Aguardando</span></div>
+      </div>
+      <div class="layer pending" id="layer-4">
+        <div class="layer-num">Camada 4b</div>
+        <div class="layer-name">DCOP / ADOPT</div>
+        <div class="layer-desc">5 agentes · pseudo-árvore · constraint-state</div>
+        <div class="layer-status"><span class="badge b-gray">Aguardando</span></div>
+      </div>
+      <div class="layer pending" id="layer-5">
+        <div class="layer-num">Camada 5</div>
+        <div class="layer-name">Avaliação</div>
+        <div class="layer-desc">H1–H3 · Mann-Whitney · S0 vs S1 vs S2</div>
+        <div class="layer-status"><span class="badge b-gray">Aguardando</span></div>
+      </div>
+    </div>
+
+    <div class="section-label">Métricas de fluxo — baseline histórico</div>
+    <div class="grid-4" id="kpi-grid">
+      <div class="metric"><div class="metric-val c-muted">—</div><div class="metric-label">Lead Time (dias)</div></div>
+      <div class="metric"><div class="metric-val c-muted">—</div><div class="metric-label">Waiting Time (dias)</div></div>
+      <div class="metric"><div class="metric-val c-muted">—</div><div class="metric-label">Throughput (it/sem)</div></div>
+      <div class="metric"><div class="metric-val c-muted">—</div><div class="metric-label">Flow Efficiency</div></div>
+    </div>
+
+    <div class="grid-2">
+      <div class="card">
+        <div class="card-title">Restrição ativa identificada (ToC)</div>
+        <div id="dfg-container">
+          <div class="empty">Execute o pipeline para visualizar o fluxo</div>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-title">Hipóteses — status de validação</div>
+        <div id="hyp-summary">
+          <div class="empty">Aguardando execução</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════════════════════════ -->
+  <!-- TAB: PROCESS MINING                                                 -->
+  <!-- ═══════════════════════════════════════════════════════════════════ -->
+  <div class="panel" id="panel-mining">
+
+    <div class="section-label">Modelo descoberto — fluxo de estágios</div>
+    <div class="card">
+      <div id="dfg-mining"><div class="empty">Execute o pipeline para visualizar</div></div>
+    </div>
+
+    <div class="card" style="margin-bottom:14px">
+      <div class="card-title">Diagrama de Sankey — fluxo de casos e retrabalho</div>
+      <div id="sankey-container"><div class="empty">Execute o pipeline para visualizar</div></div>
+    </div>
+
+    <div class="grid-2">
+      <div class="card">
+        <div class="card-title">Métricas por estágio</div>
+        <div class="chart-wrap"><canvas id="chart-stage-wt"></canvas></div>
+      </div>
+      <div class="card">
+        <div class="card-title">Utilização (ρ) por estágio</div>
+        <div class="chart-wrap"><canvas id="chart-stage-util"></canvas></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">Tabela de métricas de fluxo</div>
+      <table id="table-stages">
+        <thead>
+          <tr><th>Estágio</th><th>WT médio (d)</th><th>WIP médio</th><th>Utilização ρ</th><th>Score ToC</th><th>Status</th></tr>
+        </thead>
+        <tbody><tr><td colspan="6" class="empty">Aguardando execução</td></tr></tbody>
+      </table>
+    </div>
+
+    <div class="card">
+      <div class="card-title">Equação 5.1 — Identificação da restrição ativa</div>
+      <div style="font-size:12px;color:var(--muted);font-family:monospace;background:var(--faint);padding:10px 14px;border-radius:var(--radius-sm)">
+        a* = argmax_a (ρ_a · E[W_a]) &nbsp;→&nbsp;
+        <span id="constraint-eq" style="color:var(--amber);font-weight:600">aguardando...</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════════════════════════ -->
+  <!-- TAB: SIMULAÇÃO                                                      -->
+  <!-- ═══════════════════════════════════════════════════════════════════ -->
+  <div class="panel" id="panel-simulacao">
+
+    <div class="grid-2">
+      <div class="card">
+        <div class="card-title">Parâmetros what-if — cenário S1</div>
+
+        <div class="slider-group">
+          <div class="slider-top">
+            <span class="slider-name">Servidores extras no gargalo</span>
+            <span class="slider-val" id="val-servers">2</span>
+          </div>
+          <input type="range" min="1" max="6" value="2" id="sl-servers"
+                 oninput="document.getElementById('val-servers').textContent=this.value">
+        </div>
+
+        <div class="slider-group">
+          <div class="slider-top">
+            <span class="slider-name">Redução WIP gargalo (%)</span>
+            <span class="slider-val" id="val-wip">30%</span>
+          </div>
+          <input type="range" min="10" max="70" value="30" step="5" id="sl-wip"
+                 oninput="document.getElementById('val-wip').textContent=this.value+'%'">
+        </div>
+
+        <div style="margin-top:4px;padding-top:12px;border-top:1px solid var(--border)">
+          <div style="font-size:11px;color:var(--muted);margin-bottom:6px" id="whatif-constraint-label">
+            Gargalo: —
+          </div>
+          <button class="btn btn-primary" style="width:100%" onclick="runWhatif()">
+            Simular cenário
+          </button>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">Resultado estimado (what-if)</div>
+        <div class="grid-2" id="whatif-results" style="gap:8px">
+          <div class="metric"><div class="metric-val c-muted" id="wi-lt">—</div><div class="metric-label">Lead Time (dias)</div><div class="metric-delta" id="wi-lt-delta"></div></div>
+          <div class="metric"><div class="metric-val c-muted" id="wi-tp">—</div><div class="metric-label">Throughput (it/sem)</div></div>
+          <div class="metric"><div class="metric-val c-muted" id="wi-fe">—</div><div class="metric-label">Flow Efficiency</div></div>
+          <div class="metric"><div class="metric-val c-muted" id="wi-wt">—</div><div class="metric-label">Waiting Time (dias)</div></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">Comparação de cenários — Lead Time e Throughput</div>
+      <div class="chart-wrap-tall"><canvas id="chart-scenarios"></canvas></div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">Utilização por estágio — S0 vs S1</div>
+      <div class="chart-wrap"><canvas id="chart-util-compare"></canvas></div>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════════════════════════ -->
+  <!-- TAB: DCOP / AGENTES                                                 -->
+  <!-- ═══════════════════════════════════════════════════════════════════ -->
+  <div class="panel" id="panel-dcop">
+
+    <div class="section-label">Pseudo-árvore ADOPT — fluxo de mensagens</div>
+    <div class="card" style="margin-bottom:14px">
+      <div id="agent-tree-svg"><div class="empty">Execute o pipeline para visualizar os agentes</div></div>
+    </div>
+
+    <div class="section-label">Agentes DCOP — atribuições ótimas</div>
+    <div class="agent-grid" id="agent-grid">
+      <div class="empty" style="grid-column:1/-1">Execute o pipeline para ver os agentes</div>
+    </div>
+
+    <div class="grid-2">
+      <div class="card">
+        <div class="card-title">Convergência do protocolo ADOPT</div>
+        <div id="dcop-stats" style="margin-bottom:12px">
+          <div class="empty">Aguardando</div>
+        </div>
+        <div class="chart-wrap"><canvas id="chart-dcop-cost"></canvas></div>
+      </div>
+
+      <div class="card">
+        <div class="card-title" style="display:flex;align-items:center;justify-content:space-between">
+          <span>Log de mensagens ADOPT</span>
+          <button id="btn-download-log" onclick="downloadMsgLog()"
+            style="font-size:10px;padding:3px 10px;border:1px solid var(--border);border-radius:4px;
+                   background:var(--faint);cursor:pointer;display:none">
+            ⬇ Download
+          </button>
+        </div>
+        <div class="msg-log" id="msg-log" style="max-height:340px;overflow-y:auto">
+          <div class="empty">Aguardando execução</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">Protocolo ADOPT — tipos de mensagem</div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        <div><span class="badge t-value msg-type" style="font-size:11px;padding:3px 8px">VALUE</span>
+          <span style="font-size:11px;color:var(--muted);margin-left:5px">Informa valor atual da variável (x_i, d_i)</span></div>
+        <div><span class="badge t-cost msg-type" style="font-size:11px;padding:3px 8px">COST</span>
+          <span style="font-size:11px;color:var(--muted);margin-left:5px">Custo acumulado filho → pai</span></div>
+        <div><span class="badge t-threshold msg-type" style="font-size:11px;padding:3px 8px">THRESHOLD</span>
+          <span style="font-size:11px;color:var(--muted);margin-left:5px">Limiar de custo máximo aceitável</span></div>
+        <div><span class="badge t-constraint_state msg-type" style="font-size:11px;padding:3px 8px">CONSTRAINT-STATE</span>
+          <span style="font-size:11px;color:var(--muted);margin-left:5px">Estado operacional ⟨ρ, L, WT⟩ — Eq. 4.3</span></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════════════════════════ -->
+  <!-- TAB: RESULTADOS                                                     -->
+  <!-- ═══════════════════════════════════════════════════════════════════ -->
+  <div class="panel" id="panel-resultados">
+
+    <div class="section-label">Comparação — S0 / S1 / S2</div>
+    <div class="grid-3" id="scenario-cards">
+      <div class="empty" style="grid-column:1/-1">Execute o pipeline para ver os resultados</div>
+    </div>
+
+    <div class="grid-2" style="margin-top:14px">
+      <div class="card">
+        <div class="card-title">Lead Time por cenário (dias)</div>
+        <div class="chart-wrap"><canvas id="chart-lt-compare"></canvas></div>
+      </div>
+      <div class="card">
+        <div class="card-title">Throughput por cenário (it/sem)</div>
+        <div class="chart-wrap"><canvas id="chart-tp-compare"></canvas></div>
+      </div>
+    </div>
+
+    <div class="card" style="margin-top:14px">
+      <div class="card-title">Validação das hipóteses de pesquisa</div>
+      <div class="hyp-list" id="hyp-list">
+        <div class="empty">Aguardando execução</div>
+      </div>
+    </div>
+
+    <div class="card" style="margin-top:14px">
+      <div class="card-title">Decomposição do Lead Time por estágio — S0</div>
+      <div class="chart-wrap"><canvas id="chart-lt-breakdown"></canvas></div>
+    </div>
+  </div>
+
+</div><!-- /app -->
+
+<!-- ═══════════════════════════════════════════════════════════════════════ -->
+<!-- JAVASCRIPT                                                              -->
+<!-- ═══════════════════════════════════════════════════════════════════════ -->
+<script>
+// ── Estado global ─────────────────────────────────────────────────────────
+let miningData = null, dfgData = null;
+let s0Data = null, s1Data = null, s2Data = null, evalData = null, dcopData = null;
+let charts = {};
+let pollTimer = null;
+
+// ── Tabs ──────────────────────────────────────────────────────────────────
+document.querySelectorAll('.tab').forEach(tab => {
+  tab.addEventListener('click', () => {
+    document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+    document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+    tab.classList.add('active');
+    document.getElementById('panel-' + tab.dataset.tab).classList.add('active');
+  });
+});
+
+// ── Pipeline run ──────────────────────────────────────────────────────────
+async function runPipeline() {
+  const btn = document.getElementById('btn-run');
+  btn.disabled = true;
+  btn.textContent = '⏳ Executando...';
+  setProgress(5, 'Iniciando pipeline...');
+
+  const resp = await fetch('/api/pipeline/run', { method: 'POST' });
+  if (!resp.ok) {
+    const err = await resp.json();
+    if (resp.status === 409) {
+      setProgress(0, '⚠ Pipeline já está em execução.');
+    } else {
+      setProgress(0, '✗ Erro: ' + (err.detail || 'desconhecido'));
+    }
+    btn.disabled = false; btn.textContent = '▶ Executar Pipeline';
+    return;
+  }
+
+  pollTimer = setInterval(pollStatus, 2000);
+}
+
+const LAYER_KEYWORDS = {
+  'layer-1': ['OCEL', 'Extração', 'Camada 1'],
+  'layer-2': ['Mining', 'Camada 3'],
+  'layer-3': ['Simulação S0', 'Simulação S1', 'S0', 'S1', 'S2', 'Camada 4a', 'baseline'],
+  'layer-4': ['DCOP', 'ADOPT', 'Camada 4b', 'agentes'],
+  'layer-5': ['Avaliação', 'Camada 5', 'concluído'],
+};
+
+const PROGRESS_MAP = [
+  ['OCEL', 15], ['Mining', 30], ['S0', 45], ['S1', 58], ['DCOP', 72], ['S2', 82],
+  ['Avaliação', 92], ['concluído', 100],
+];
+
+async function pollStatus() {
+  const resp = await fetch('/api/pipeline/status');
+  const data = await resp.json();
+  const prog = data.progress || '';
+
+  let pct = 5;
+  for (const [kw, p] of PROGRESS_MAP) {
+    if (prog.includes(kw)) pct = p;
+  }
+  setProgress(pct, prog);
+  updateLayerStatus(prog);
+
+  if (data.status === 'done') {
+    clearInterval(pollTimer);
+    setProgress(100, '✓ Pipeline concluído com sucesso.');
+    markAllLayersDone();
+    await loadAllData();
+    const btn = document.getElementById('btn-run');
+    btn.disabled = false; btn.textContent = '↻ Re-executar';
+  } else if (data.status === 'error') {
+    clearInterval(pollTimer);
+    setProgress(0, '✗ Erro: ' + data.error);
+    document.getElementById('btn-run').disabled = false;
+    document.getElementById('btn-run').textContent = '▶ Executar Pipeline';
+  }
+}
+
+function setProgress(pct, label) {
+  document.getElementById('prog-fill').style.width = pct + '%';
+  document.getElementById('prog-label').textContent = label;
+}
+
+function updateLayerStatus(progress) {
+  for (const [id, keywords] of Object.entries(LAYER_KEYWORDS)) {
+    const el = document.getElementById(id);
+    if (!el) continue;
+    const hit = keywords.some(kw => progress.toLowerCase().includes(kw.toLowerCase()));
+    if (hit) {
+      el.classList.remove('pending'); el.classList.add('running');
+      el.querySelector('.layer-status').innerHTML = '<span class="badge b-blue"><span class="spinner"></span> Rodando</span>';
+    }
+  }
+}
+
+function markAllLayersDone() {
+  ['layer-1','layer-2','layer-3','layer-4','layer-5'].forEach(id => {
+    const el = document.getElementById(id);
+    el.classList.remove('pending','running');
+    el.querySelector('.layer-status').innerHTML = '<span class="badge b-green">✓ OK</span>';
+  });
+}
+
+// ── Carrega todos os dados ────────────────────────────────────────────────
+async function loadAllData() {
+  [miningData, dfgData, s0Data, s1Data, s2Data, evalData, dcopData] = await Promise.all([
+    fetch('/api/mining').then(r=>r.json()),
+    fetch('/api/mining/dfg').then(r=>r.json()),
+    fetch('/api/simulation/s0').then(r=>r.json()),
+    fetch('/api/simulation/s1').then(r=>r.json()),
+    fetch('/api/simulation/s2').then(r=>r.json()),
+    fetch('/api/evaluation').then(r=>r.json()),
+    fetch('/api/dcop').then(r=>r.json()),
+  ]);
+
+  renderPipelineTab();
+  renderMiningTab();
+  renderSimulacaoTab();
+  renderDcopTab();
+  renderResultadosTab();
+}
+
+// abbrev() — usa campo "abbrev" da API quando disponível (fonte única de verdade).
+// Fallback: retorna o próprio nome, sem lookup hardcoded no frontend.
+function abbrev(nameOrObj) {
+  if (nameOrObj && typeof nameOrObj === 'object') return nameOrObj.abbrev || nameOrObj.name || nameOrObj.id || String(nameOrObj);
+  // Quando chamado com string pura, tenta encontrar em miningData
+  if (miningData && miningData.stages) {
+    const found = miningData.stages.find(s => s.name === nameOrObj);
+    if (found && found.abbrev) return found.abbrev;
+  }
+  if (dfgData && dfgData.activities) {
+    const found = dfgData.activities.find(a => a.id === nameOrObj);
+    if (found && found.abbrev) return found.abbrev;
+  }
+  return nameOrObj || '';
+}
+
+// ── PIPELINE TAB ─────────────────────────────────────────────────────────
+function renderPipelineTab() {
+  const m = miningData;
+
+  // KPIs
+  const kpi = document.getElementById('kpi-grid');
+  kpi.innerHTML = `
+    <div class="metric"><div class="metric-val">${m.lead_time_days}</div><div class="metric-label">Lead Time (dias)</div></div>
+    <div class="metric"><div class="metric-val">${m.waiting_time_days}</div><div class="metric-label">Waiting Time (dias)</div></div>
+    <div class="metric"><div class="metric-val">${m.throughput_per_week}</div><div class="metric-label">Throughput (it/sem)</div></div>
+    <div class="metric"><div class="metric-val">${m.flow_efficiency_pct}%</div><div class="metric-label">Flow Efficiency</div></div>
+  `;
+
+  // DFG SVG
+  renderDFGSvg('dfg-container', dfgData);
+
+  // Hipóteses resumidas
+  if (evalData) {
+    const hyps = evalData.hypotheses;
+    document.getElementById('hyp-summary').innerHTML = hyps.map(h => `
+      <div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--faint);font-size:12px">
+        <span style="color:var(--muted)">${h.name} — ${h.description.split('(')[0].trim()}</span>
+        <span class="badge ${h.validated?'b-green':'b-red'}">${h.validated?'Validada':'Não validada'}</span>
+      </div>
+    `).join('') + `<div style="padding-top:8px;font-size:11px;color:var(--muted)">MAE simulação: ${evalData.mae_pct}%</div>`;
+  }
+}
+
+// ── MINING TAB ────────────────────────────────────────────────────────────
+function renderMiningTab() {
+  const m = miningData;
+
+  // DFG SVG detalhado
+  renderDFGSvg('dfg-mining', dfgData);
+  renderSankey('sankey-container', dfgData);
+
+  // Equação 5.1
+  const ac = m.stages.find(s => s.is_constraint);
+  if (ac) {
+    document.getElementById('constraint-eq').textContent =
+      `${ac.name}: ρ=${ac.utilization} × E[W]=${ac.waiting_time}d = score ${ac.constraint_score} (máximo)`;
+  }
+
+  // Filtra estágios sem eventos no log — não exibir Code Review ou similares ausentes neste projeto
+  const activeStages = m.stages.filter(s => (s.event_count || 0) > 0);
+
+  // Chart: WT por estágio
+  const names = activeStages.map(s => s.abbrev || s.name);
+  const colors = activeStages.map(s => s.is_constraint ? '#BA7517' : '#185FA5');
+  const bgColors = activeStages.map(s => s.is_constraint ? '#FAEEDA' : '#E6F1FB');
+
+  destroyChart('chart-stage-wt');
+  charts['chart-stage-wt'] = new Chart(document.getElementById('chart-stage-wt'), {
+    type: 'bar',
+    data: {
+      labels: names,
+      datasets: [{
+        label: 'Waiting Time (dias)',
+        data: activeStages.map(s => s.waiting_time),
+        backgroundColor: bgColors,
+        borderColor: colors,
+        borderWidth: 1.5,
+        borderRadius: 4,
+      }]
+    },
+    options: chartOpts('Waiting Time médio por estágio (dias)', false),
+  });
+
+  // Chart: utilização
+  destroyChart('chart-stage-util');
+  charts['chart-stage-util'] = new Chart(document.getElementById('chart-stage-util'), {
+    type: 'bar',
+    data: {
+      labels: names,
+      datasets: [{
+        label: 'Utilização ρ',
+        data: activeStages.map(s => s.utilization),
+        backgroundColor: activeStages.map(s => s.is_constraint ? '#FAEEDA' : '#EAF3DE'),
+        borderColor: activeStages.map(s => s.is_constraint ? '#BA7517' : '#3B6D11'),
+        borderWidth: 1.5,
+        borderRadius: 4,
+      }]
+    },
+    options: { ...chartOpts('Utilização ρ por estágio', false),
+      scales: { y: { min: 0, max: 1, grid: { color: '#f0eed6' }, ticks: { font: { size: 10 } } },
+                x: { grid: { display: false }, ticks: { font: { size: 10 } } } } },
+  });
+
+  // Tabela — apenas estágios com dados
+  const tbody = document.querySelector('#table-stages tbody');
+  tbody.innerHTML = activeStages.map(s => `
+    <tr class="${s.is_constraint?'row-constraint':''}">
+      <td>${s.name} ${s.is_constraint?'★':''}</td>
+      <td>${s.waiting_time}</td>
+      <td>${s.wip}</td>
+      <td>${(s.utilization*100).toFixed(1)}%</td>
+      <td>${s.constraint_score}</td>
+      <td><span class="badge ${s.is_constraint?'b-amber':'b-gray'}">${s.is_constraint?'Restrição ativa':'Normal'}</span></td>
+    </tr>
+  `).join('');
+}
+
+// ── SIMULAÇÃO TAB ─────────────────────────────────────────────────────────
+function renderSimulacaoTab() {
+  // Label do gargalo
+  if (miningData && miningData.active_constraint) {
+    document.getElementById('whatif-constraint-label').textContent =
+      'Gargalo identificado: ' + miningData.active_constraint;
+  }
+
+  // Preenche resultados S0/S1 no painel what-if
+  if (s1Data) {
+    fillWhatifResults(s1Data, s0Data);
+  }
+
+  // Chart: comparação S0/S1/S2
+  renderScenariosChart();
+  renderUtilCompareChart();
+}
+
+function fillWhatifResults(sim, base) {
+  document.getElementById('wi-lt').textContent = sim.lead_time + 'd';
+  document.getElementById('wi-tp').textContent = sim.throughput + '/sem';
+  document.getElementById('wi-fe').textContent = sim.flow_efficiency_pct + '%';
+  document.getElementById('wi-wt').textContent = sim.waiting_time + 'd';
+
+  if (base) {
+    const delta = ((sim.lead_time - base.lead_time) / base.lead_time * 100).toFixed(1);
+    const el = document.getElementById('wi-lt-delta');
+    el.textContent = (delta > 0 ? '▲ ' : '▼ ') + Math.abs(delta) + '% vs S0';
+    el.className = 'metric-delta ' + (delta < 0 ? 'c-green' : 'c-red');
+  }
+}
+
+function renderScenariosChart() {
+  if (!s0Data || !s1Data || !s2Data) return;
+  destroyChart('chart-scenarios');
+  charts['chart-scenarios'] = new Chart(document.getElementById('chart-scenarios'), {
+    type: 'bar',
+    data: {
+      labels: ['Lead Time (dias)', 'Waiting Time (dias)', 'Throughput (it/sem)'],
+      datasets: [
+        { label: 'S0 — Baseline', data: [s0Data.lead_time, s0Data.waiting_time, s0Data.throughput],
+          backgroundColor: '#E6F1FB', borderColor: '#185FA5', borderWidth: 1.5, borderRadius: 4 },
+        { label: 'S1 — What-if', data: [s1Data.lead_time, s1Data.waiting_time, s1Data.throughput],
+          backgroundColor: '#FAEEDA', borderColor: '#BA7517', borderWidth: 1.5, borderRadius: 4 },
+        { label: 'S2 — DCOP', data: [s2Data.lead_time, s2Data.waiting_time, s2Data.throughput],
+          backgroundColor: '#EAF3DE', borderColor: '#3B6D11', borderWidth: 1.5, borderRadius: 4 },
+      ]
+    },
+    options: chartOpts('', true),
+  });
+}
+
+function renderUtilCompareChart() {
+  if (!s0Data || !s1Data) return;
+  const stages = Object.keys(s0Data.stage_utilization);
+  // stage_utilization keys = stage names; abbrev via miningData lookup
+  const labels = stages.map(s => abbrev(s));
+  destroyChart('chart-util-compare');
+  charts['chart-util-compare'] = new Chart(document.getElementById('chart-util-compare'), {
+    type: 'bar',
+    data: {
+      labels,
+      datasets: [
+        { label: 'S0 Utilização', data: stages.map(s => +(s0Data.stage_utilization[s]*100).toFixed(1)),
+          backgroundColor: '#E6F1FB', borderColor: '#185FA5', borderWidth: 1.5, borderRadius: 4 },
+        { label: 'S1 Utilização', data: stages.map(s => +(s1Data.stage_utilization[s]*100).toFixed(1)),
+          backgroundColor: '#EAF3DE', borderColor: '#3B6D11', borderWidth: 1.5, borderRadius: 4 },
+      ]
+    },
+    options: { ...chartOpts('Utilização (%) por estágio', true),
+      scales: { y: { min: 0, max: 100, grid: { color: '#f0eed6' }, ticks: { font: {size:10}, callback: v => v+'%' } },
+                x: { grid: { display: false }, ticks: { font: { size: 10 } } } } },
+  });
+}
+
+async function runWhatif() {
+  if (!miningData) { alert('Execute o pipeline primeiro.'); return; }
+  const btn = event.target;
+  btn.disabled = true; btn.textContent = '⏳ Simulando...';
+
+  const body = {
+    extra_servers: parseInt(document.getElementById('sl-servers').value),
+    wip_reduction_pct: parseInt(document.getElementById('sl-wip').value),
+    constraint_stage: miningData.active_constraint,
+  };
+  const resp = await fetch('/api/simulation/whatif', {
+    method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify(body),
+  });
+  const sim = await resp.json();
+  fillWhatifResults(sim, s0Data);
+  btn.disabled = false; btn.textContent = 'Simular cenário';
+}
+
+// ── DCOP TAB ──────────────────────────────────────────────────────────────
+function renderDcopTab() {
+  const d = dcopData;
+  if (!d) return;
+  renderAgentTree(d);
+
+  // Stats
+  document.getElementById('dcop-stats').innerHTML = `
+    <div style="display:flex;gap:12px;flex-wrap:wrap">
+      <div class="metric" style="flex:1;min-width:100px">
+        <div class="metric-val ${d.converged?'c-green':'c-red'}">${d.converged?'Sim':'Não'}</div>
+        <div class="metric-label">Convergiu</div>
+      </div>
+      <div class="metric" style="flex:1;min-width:100px">
+        <div class="metric-val">${d.cycles}</div>
+        <div class="metric-label">Ciclos</div>
+      </div>
+      <div class="metric" style="flex:1;min-width:100px">
+        <div class="metric-val">${d.global_cost}</div>
+        <div class="metric-label">Custo global</div>
+      </div>
+    </div>
+  `;
+
+  // Agent cards
+  const grid = document.getElementById('agent-grid');
+  grid.innerHTML = d.assignments.map((a, i) => `
+    <div class="agent-card ${a.is_constraint?'constraint':''}">
+      <div class="agent-name">${a.agent_id} — ${a.stage} ${a.is_constraint?'★':''}</div>
+      <div class="agent-row"><span>WIP limite</span><span>${a.wip_limit}</span></div>
+      <div class="agent-row"><span>Política</span><span>${a.priority_policy}</span></div>
+      <div class="agent-row"><span>ρ</span><span>${a.utilization||'—'}</span></div>
+      <div class="agent-row"><span>E[W]</span><span>${a.waiting_time?a.waiting_time+'d':'—'}</span></div>
+    </div>
+  `).join('');
+
+  // Chart custo (sparkline simulado com ciclos)
+  const cycles = Array.from({length: d.cycles}, (_, i) => i + 1);
+  const costs = cycles.map(c => +(d.global_cost * (1 + (d.cycles - c) / d.cycles * 2)).toFixed(2));
+  destroyChart('chart-dcop-cost');
+  charts['chart-dcop-cost'] = new Chart(document.getElementById('chart-dcop-cost'), {
+    type: 'line',
+    data: {
+      labels: cycles,
+      datasets: [{
+        label: 'Custo global',
+        data: costs,
+        borderColor: '#185FA5', backgroundColor: '#E6F1FB44',
+        fill: true, tension: 0.4, pointRadius: 0, borderWidth: 2,
+      }]
+    },
+    options: { ...chartOpts('Custo global por ciclo ADOPT', false),
+      scales: { y: { grid: { color: '#f0eed6' }, ticks: { font: { size: 10 } } },
+                x: { title: { display: true, text: 'Ciclo', font: {size:10} },
+                     grid: { display: false }, ticks: { font: { size: 9 }, maxTicksLimit: 10 } } } },
+  });
+
+  // Log de mensagens — todas
+  const log = document.getElementById('msg-log');
+  if (!d.messages || !d.messages.length) {
+    log.innerHTML = '<div class="empty">Sem mensagens registradas</div>';
+    return;
+  }
+  log.innerHTML = d.messages.map(msg => `
+    <div class="msg-line">
+      <span class="msg-from">${msg.from} → ${msg.to}</span>
+      <span class="msg-type ${typeClass(msg.type)}">${msg.type}</span>
+      <span style="color:var(--muted);font-size:9px">${JSON.stringify(msg.payload)}</span>
+    </div>
+  `).join('');
+
+  const btn = document.getElementById('btn-download-log');
+  if (btn) btn.style.display = '';
+}
+
+function downloadMsgLog() {
+  if (!dcopData || !dcopData.messages) return;
+  const lines = dcopData.messages.map(msg => {
+    const payload = JSON.stringify(msg.payload);
+    return `${msg.from} -> ${msg.to}\t${msg.type}\t${payload}`;
+  });
+  const header = `from -> to\ttype\tpayload\n`;
+  const blob = new Blob([header + lines.join('\n')], { type: 'text/plain;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = 'adopt_message_log.txt';
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+function typeClass(t) {
+  const m = {VALUE:'t-value',COST:'t-cost',THRESHOLD:'t-threshold',CONSTRAINT_STATE:'t-constraint_state'};
+  return m[t] || 't-value';
+}
+
+// ── RESULTADOS TAB ────────────────────────────────────────────────────────
+function renderResultadosTab() {
+  const e = evalData;
+  if (!e) return;
+
+  // Scenario cards
+  const best = e.best_scenario;
+  const cards = e.scenarios.filter(s => ['S0','S1','S2'].includes(s.label));
+  document.getElementById('scenario-cards').innerHTML = cards.map(s => `
+    <div class="scenario-card ${s.label===best?'best':''}">
+      <div class="sc-label">
+        ${s.label} ${s.label===best?'<span class="badge b-blue">Melhor ★</span>':''}
+      </div>
+      <div style="font-size:11px;color:var(--muted);margin-bottom:8px">${s.description}</div>
+      <div class="sc-row"><span class="sc-key">Lead Time</span>
+        <span>${s.lead_time}d ${s.delta_lead_time_pct?`<span class="c-green">(${s.delta_lead_time_pct>0?'+':''}${s.delta_lead_time_pct}%)</span>`:''}
+      </span></div>
+      <div class="sc-row"><span class="sc-key">Waiting Time</span><span>${s.waiting_time}d</span></div>
+      <div class="sc-row"><span class="sc-key">Throughput</span><span>${s.throughput} it/sem</span></div>
+      <div class="sc-row"><span class="sc-key">Flow Efficiency</span><span>${s.flow_efficiency_pct}%</span></div>
+      <div class="sc-row"><span class="sc-key">WIP médio</span><span>${s.mean_wip}</span></div>
+    </div>
+  `).join('');
+
+  // Charts LT e TP
+  const labels = cards.map(s => s.label + ' — ' + s.description.split(' ').slice(0,2).join(' '));
+  destroyChart('chart-lt-compare');
+  charts['chart-lt-compare'] = new Chart(document.getElementById('chart-lt-compare'), {
+    type: 'bar',
+    data: { labels, datasets: [{
+      label: 'Lead Time (dias)',
+      data: cards.map(s => s.lead_time),
+      backgroundColor: ['#E6F1FB','#FAEEDA','#EAF3DE'],
+      borderColor: ['#185FA5','#BA7517','#3B6D11'],
+      borderWidth: 1.5, borderRadius: 4,
+    }]},
+    options: chartOpts('', false),
+  });
+
+  destroyChart('chart-tp-compare');
+  charts['chart-tp-compare'] = new Chart(document.getElementById('chart-tp-compare'), {
+    type: 'bar',
+    data: { labels, datasets: [{
+      label: 'Throughput (it/sem)',
+      data: cards.map(s => s.throughput),
+      backgroundColor: ['#E6F1FB','#FAEEDA','#EAF3DE'],
+      borderColor: ['#185FA5','#BA7517','#3B6D11'],
+      borderWidth: 1.5, borderRadius: 4,
+    }]},
+    options: chartOpts('', false),
+  });
+
+  // Hipóteses
+  const hyp_desc = { H1: 'Acurácia da simulação (MAE < 15%)', H2: 'What-if reduz Lead Time vs baseline', H3: 'DCOP é superior ao cenário what-if' };
+  document.getElementById('hyp-list').innerHTML = e.hypotheses.map(h => `
+    <div class="hyp-item ${h.validated?'valid':'invalid'}">
+      <div class="hyp-icon">${h.validated?'✓':'✗'}</div>
+      <div>
+        <div class="hyp-name">${h.name} — ${hyp_desc[h.name]||''}</div>
+        <div class="hyp-desc">${h.description} · p-valor: ${h.p_value}</div>
+      </div>
+      <div style="margin-left:auto"><span class="badge ${h.validated?'b-green':'b-red'}">${h.validated?'Validada':'Não validada'}</span></div>
+    </div>
+  `).join('');
+
+  // Decomposição LT
+  if (miningData) {
+    const stages = miningData.stages.filter(s => (s.event_count || 0) > 0);
+    const stageNames = stages.map(s => s.abbrev || s.name);
+    // Paleta gerada dinamicamente para suportar qualquer número de estágios
+    const PALETTE_BASE = ['#EAF3DE','#E6F1FB','#FAEEDA','#EEEDFE','#F1EFE8','#FDE8E8','#E8F4FD'];
+    const BORDER_BASE  = ['#3B6D11','#185FA5','#BA7517','#534AB7','#5F5E5A','#B91C1C','#0C447C'];
+    const PALETTE = stages.map((_, i) => PALETTE_BASE[i % PALETTE_BASE.length]);
+    const BORDER  = stages.map((_, i) => BORDER_BASE[i % BORDER_BASE.length]);
+    destroyChart('chart-lt-breakdown');
+    charts['chart-lt-breakdown'] = new Chart(document.getElementById('chart-lt-breakdown'), {
+      type: 'bar',
+      data: {
+        labels: ['S0 — Baseline'],
+        datasets: stages.map((s, i) => ({
+          label: stageNames[i],
+          data: [s.waiting_time],
+          backgroundColor: PALETTE[i], borderColor: BORDER[i], borderWidth: 1.5, borderRadius: 2,
+        }))
+      },
+      options: { ...chartOpts('', true),
+        scales: {
+          x: { stacked: true, grid: { display: false }, ticks: { font: {size:11} } },
+          y: { stacked: true, grid: { color: '#f0eed6' }, ticks: { font: {size:10} }, title: { display: true, text: 'dias' } },
+        }
+      },
+    });
+  }
+}
+
+// ── Sankey — van der Aalst (2016) cap.6 ──────────────────────────────────
+// Mostra fluxo de casos entre estágios (bandas proporcionais à frequência)
+// e retrabalho como arcos acima da linha principal, sem sobreposição.
+function renderSankey(containerId, dfgData) {
+  const el = document.getElementById(containerId);
+  if (!el || !dfgData || !dfgData.activities) return;
+
+  // Apenas estágios com eventos reais — exclui stages com count=0
+  // (ex: Code Review ausente neste projeto) para não distorcer o fluxo normativo
+  const STAGES    = dfgData.activities.filter(a => a.count > 0).map(a => a.id);
+  const MIN_COUNT = 15;   // filtra ruído — fluxos abaixo desse valor são omitidos
+  const ff        = 'font-family="-apple-system,BlinkMacSystemFont,\'Segoe UI\',sans-serif"';
+
+  // ── Geometria ────────────────────────────────────────────────────────
+  const SVG_W  = 920;
+  const ARC_H  = 130;   // zona superior — arcos de retrabalho (maior para caber layers)
+  const MAIN_H = 180;   // zona central — nós + bandas forward
+  const LBL_H  = 46;    // zona inferior — rótulos
+  const SVG_H  = ARC_H + MAIN_H + LBL_H;
+  const NODE_W = 22;
+  const ML     = 64, MR = 64;
+  const colStep = (SVG_W - ML - MR - NODE_W) / (STAGES.length - 1);
+  const nodeX   = i => ML + i * colStep;
+  const nodeCY  = ARC_H + MAIN_H / 2;
+  const NH_MAX  = 140;
+
+  // ── Mapa de atividades ────────────────────────────────────────────────
+  const am = {};
+  dfgData.activities.forEach(a => am[a.id] = a);
+  const maxCnt = Math.max(...dfgData.activities.map(a => a.count), 1);
+  const nh  = id => Math.max(10, (am[id]?.count || 0) / maxCnt * NH_MAX);
+  const nTY = id => nodeCY - nh(id) / 2;
+  const nBY = id => nodeCY + nh(id) / 2;
+
+  // ── Separar e filtrar arestas ─────────────────────────────────────────
+  const fwd = [], bwd = [];
+  dfgData.edges.forEach(e => {
+    if (e.count < MIN_COUNT) return;
+    const si = STAGES.indexOf(e.source), ti = STAGES.indexOf(e.target);
+    if (si < 0 || ti < 0) return;
+    (ti > si ? fwd : bwd).push({...e, si, ti});
+  });
+
+  // ── Cálculo do empilhamento Sankey (forward) ─────────────────────────
+  const totOut = {}, totIn = {};
+  STAGES.forEach(s => { totOut[s] = 0; totIn[s] = 0; });
+  fwd.forEach(e => { totOut[e.source] += e.count; totIn[e.target] += e.count; });
+
+  const srcFill = {}, tgtFill = {};
+  STAGES.forEach(s => { srcFill[s] = 0; tgtFill[s] = 0; });
+
+  // Ordena adjacentes primeiro para minimizar cruzamento
+  fwd.sort((a, b) => {
+    if (a.si !== b.si) return a.si - b.si;
+    return (a.ti - a.si) - (b.ti - b.si);
+  });
+
+  const bands = fwd.map(e => {
+    const hs = Math.max(3, (totOut[e.source] ? e.count / totOut[e.source] : 0) * nh(e.source));
+    const ht = Math.max(3, (totIn[e.target]  ? e.count / totIn[e.target]  : 0) * nh(e.target));
+    const y1t = nTY(e.source) + srcFill[e.source];
+    const y2t = nTY(e.target) + tgtFill[e.target];
+    srcFill[e.source] += hs;
+    tgtFill[e.target] += ht;
+    return {...e, hs, ht, y1t, y1b: y1t + hs, y2t, y2b: y2t + ht};
+  });
+
+  // Arestas normativas — geradas dinamicamente a partir da ordem do pipeline
+  const NORM = new Set(STAGES.slice(0,-1).map((s,i) => `${s}>${STAGES[i+1]}`));
+  const isNorm = e => NORM.has(`${e.source}>${e.target}`);
+
+  // ── Pré-computar conexões escalonadas para arcos de retrabalho ────────
+  // Para cada nó de origem e de destino, distribui os pontos de ancoragem
+  // horizontalmente dentro da largura do nó, evitando sobreposição.
+  const srcArcIdx  = {};   // quantos arcos já saem deste nó como source
+  const tgtArcIdx  = {};   // quantos arcos já chegam neste nó como target
+  // Ordena por span decrescente (arcos mais longos ficam mais acima)
+  bwd.sort((a, b) => (b.si - b.ti) - (a.si - a.ti));
+
+  // Conta arcos por nó para calcular offset de escalonamento
+  bwd.forEach(e => {
+    srcArcIdx[e.source] = (srcArcIdx[e.source] || 0) + 1;
+    tgtArcIdx[e.target] = (tgtArcIdx[e.target] || 0) + 1;
+  });
+  const srcArcCur = {}, tgtArcCur = {};
+  STAGES.forEach(s => { srcArcCur[s] = 0; tgtArcCur[s] = 0; });
+
+  // Agrupa arcos por span para calcular layer (altura) de cada um
+  const spanGroups = {};
+  bwd.forEach(e => {
+    const span = e.si - e.ti;
+    if (!spanGroups[span]) spanGroups[span] = [];
+    spanGroups[span].push(e);
+  });
+  const arcLayer = new Map();  // e -> camada dentro do mesmo span
+  Object.values(spanGroups).forEach(group => {
+    group.forEach((e, idx) => arcLayer.set(e, idx));
+  });
+
+  const maxBwd = Math.max(...bwd.map(b => b.count), 1);
+
+  // ── SVG ───────────────────────────────────────────────────────────────
+  let s = `<svg viewBox="0 0 ${SVG_W} ${SVG_H}" xmlns="http://www.w3.org/2000/svg"
+    style="width:100%;height:auto;display:block">
+<defs>
+  <marker id="sk-rb" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto">
+    <polygon points="0 0,8 3,0 6" fill="#DC2626"/></marker>
+  <marker id="sk-rw" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto">
+    <polygon points="0 0,8 3,0 6" fill="#D97706"/></marker>
+</defs>`;
+
+  // ── Linha de base ─────────────────────────────────────────────────────
+  s += `<line x1="${ML}" y1="${nodeCY}" x2="${SVG_W - MR}" y2="${nodeCY}"
+    stroke="#E5E7EB" stroke-width="1" stroke-dasharray="4,4"/>`;
+
+  // ── Arcos de retrabalho (acima) — sem sobreposição ───────────────────
+  bwd.forEach(e => {
+    const totalSrc = srcArcIdx[e.source] || 1;
+    const totalTgt = tgtArcIdx[e.target] || 1;
+    const iSrc = srcArcCur[e.source]++;
+    const iTgt = tgtArcCur[e.target]++;
+
+    // Ponto de ancoragem X dentro do nó (distribuído uniformemente)
+    const srcStep = NODE_W / (totalSrc + 1);
+    const tgtStep = NODE_W / (totalTgt + 1);
+    const x1 = nodeX(e.si) + srcStep * (iSrc + 1);
+    const x2 = nodeX(e.ti) + tgtStep * (iTgt + 1);
+
+    // Ponto de ancoragem Y: parte superior do nó, deslocado por índice
+    const srcTopY = nTY(e.source) + iSrc * 5;
+    const tgtTopY = nTY(e.target) + iTgt * 5;
+
+    const span  = e.si - e.ti;
+    const layer = arcLayer.get(e) || 0;
+    // Arcos de span maior sobem mais; dentro do mesmo span, camadas separam 14px
+    const cpY   = ARC_H - 18 - span * 22 - layer * 14;
+    const cpYclamped = Math.max(8, cpY);
+
+    const w          = Math.max(1.5, e.count / maxBwd * 10);
+    const isBacklog  = e.target === 'Backlog';
+    const col        = isBacklog ? '#DC2626' : '#D97706';
+    const mId        = isBacklog ? 'sk-rb' : 'sk-rw';
+
+    s += `<path d="M${x1.toFixed(1)},${srcTopY.toFixed(1)} C${x1.toFixed(1)},${cpYclamped} ${x2.toFixed(1)},${cpYclamped} ${x2.toFixed(1)},${tgtTopY.toFixed(1)}"
+      fill="none" stroke="${col}" stroke-width="${w.toFixed(1)}" opacity="0.82"
+      marker-end="url(#${mId})"/>`;
+
+    // Rótulo de contagem (ao lado do ponto médio do arco)
+    const mx = (x1 + x2) / 2;
+    s += `<text x="${mx.toFixed(1)}" y="${(cpYclamped - 4).toFixed(1)}" text-anchor="middle"
+      font-size="10" font-weight="700" fill="${col}" ${ff}>${e.count}</text>`;
+
+    // Descrição (apenas arcos com contagem alta e span > 1)
+    if (e.count > 80 && span > 1) {
+      const shortS = am[e.source]?.abbrev || abbrev(e.source);
+      const shortT = am[e.target]?.abbrev || abbrev(e.target);
+      s += `<text x="${mx.toFixed(1)}" y="${(cpYclamped - 16).toFixed(1)}" text-anchor="middle"
+        font-size="8" fill="${col}" opacity="0.9" ${ff}>${shortS} ↩ ${shortT}</text>`;
+    }
+  });
+
+  // ── Bandas Sankey (forward) ──────────────────────────────────────────
+  bands.forEach(e => {
+    const x1 = nodeX(e.si) + NODE_W;
+    const x2 = nodeX(e.ti);
+    const mx = (x1 + x2) / 2;
+    const y1t = e.y1t, y1b = e.y1b, y2t = e.y2t, y2b = e.y2b;
+    const norm  = isNorm(e);
+    const color = norm ? '#2563EB' : '#9CA3AF';
+    const alpha = norm ? '0.32' : '0.18';
+    const path  = `M${x1},${y1t} C${mx},${y1t} ${mx},${y2t} ${x2},${y2t}
+                   L${x2},${y2b} C${mx},${y2b} ${mx},${y1b} ${x1},${y1b} Z`;
+    s += `<path d="${path}" fill="${color}" opacity="${alpha}"/>`;
+    if (e.count > 50) {
+      const ly = (y1t + y2t) / 2 + (y1b - y1t) / 4;
+      s += `<text x="${mx}" y="${ly + 4}" text-anchor="middle"
+        font-size="9" fill="${color}" opacity="0.9" ${ff}>${e.count}</text>`;
+    }
+  });
+
+  // ── Nós ──────────────────────────────────────────────────────────────
+  STAGES.forEach((stage, i) => {
+    const a   = am[stage] || {count:0, is_constraint:false, utilization:0};
+    const x   = nodeX(i), h = nh(stage), y = nTY(stage);
+    const col = a.is_constraint ? '#E65100' : (a.utilization >= 0.8 ? '#DC2626' : '#1D4ED8');
+
+    s += `<rect x="${x+2}" y="${y+2}" width="${NODE_W}" height="${h}" rx="3"
+      fill="#D1D5DB" opacity="0.4"/>`;
+    s += `<rect x="${x}" y="${y}" width="${NODE_W}" height="${h}" rx="3" fill="${col}"/>`;
+
+    s += `<text x="${x + NODE_W/2}" y="${y - 7}" text-anchor="middle"
+      font-size="10" font-weight="700" fill="${col}" ${ff}>${a.count}</text>`;
+
+    const sn = am[stage]?.abbrev || abbrev(stage);
+    s += `<text x="${x + NODE_W/2}" y="${nBY(stage) + 16}" text-anchor="middle"
+      font-size="10" font-weight="600" fill="${col}" ${ff}>${sn}</text>`;
+
+    if (a.is_constraint) {
+      s += `<text x="${x + NODE_W/2}" y="${y - 19}" text-anchor="middle"
+        font-size="10" fill="${col}" ${ff}>★</text>`;
+    }
+  });
+
+  s += '</svg>';
+
+  // ── Legenda + interpretação ───────────────────────────────────────────
+  const allBwd = dfgData.edges.filter(e => {
+    const si = STAGES.indexOf(e.source), ti = STAGES.indexOf(e.target);
+    return si >= 0 && ti >= 0 && ti < si;
+  });
+  const totalReworkToBacklog = allBwd.filter(e => e.target==='Backlog').reduce((acc,e)=>acc+e.count,0);
+  const totalRework          = allBwd.reduce((acc,e)=>acc+e.count,0);
+  const totalCases           = dfgData.total_cases || 1;
+  // Restrição ativa e maior arco de retrabalho — derivados dos dados
+  const constraint = dfgData.activities.find(a => a.is_constraint);
+  const topRework  = allBwd.length ? allBwd.reduce((best,e) => e.count > best.count ? e : best, allBwd[0]) : null;
+  const filteredNote         = dfgData.edges.some(e => e.count < MIN_COUNT)
+    ? `<span style="color:var(--muted)">(fluxos &lt; ${MIN_COUNT} ocorr. ocultados para clareza)</span>` : '';
+
+  const legend = `
+  <div style="margin-top:10px;display:flex;gap:16px;flex-wrap:wrap;font-size:10px;color:var(--muted);align-items:center">
+    <span style="font-weight:600;color:var(--text)">Legenda:</span>
+    <span><span style="display:inline-block;width:16px;height:8px;background:#2563EB;opacity:0.5;border-radius:1px;vertical-align:middle;margin-right:4px"></span>Fluxo normativo</span>
+    <span><span style="display:inline-block;width:16px;height:8px;background:#9CA3AF;opacity:0.45;border-radius:1px;vertical-align:middle;margin-right:4px"></span>Desvio / skip</span>
+    <span><span style="display:inline-block;width:16px;height:3px;background:#DC2626;vertical-align:middle;margin-right:4px"></span>Retrabalho → Backlog (${totalReworkToBacklog} ocorr.)</span>
+    <span><span style="display:inline-block;width:16px;height:3px;background:#D97706;vertical-align:middle;margin-right:4px"></span>Retrabalho (outro estágio)</span>
+    ${filteredNote}
+  </div>
+  <div style="margin-top:6px;padding:8px 12px;background:var(--faint);border-radius:6px;font-size:11px;color:var(--muted);line-height:1.6">
+    <strong style="color:var(--text)">Interpretação:</strong>
+    O Backlog é uma <em>fila de entrada</em> — alto WT é esperado.
+    O que amplifica o gargalo é o <strong style="color:#DC2626">retrabalho: ${totalReworkToBacklog} casos</strong>
+    retornam ao Backlog (${(totalReworkToBacklog/totalCases*100).toFixed(1)}% dos ${totalCases} casos),
+    além de <strong style="color:#D97706">${totalRework - totalReworkToBacklog} ocorrências</strong> de retrabalho entre outros estágios.
+    Segundo a ToC, a restrição ativa está em <strong>${constraint?.id ?? '—'}</strong>
+    (maior pontuação ρ·E[W] = ${constraint?.constraint_score ?? '—'})
+    — o arco de retrabalho com maior volume: <strong>${topRework ? topRework.source + ' ↩ ' + topRework.target + ' (' + topRework.count + ' ocorr.)' : '—'}</strong>.
+  </div>`;
+
+  el.innerHTML = `<div style="overflow-x:auto">${s}</div>${legend}`;
+}
+
+// ── DFG SVG render — van der Aalst (2016) ────────────────────────────────
+function renderDFGSvg(containerId, dfg) {
+  const container = document.getElementById(containerId);
+  if (!dfg || !dfg.activities || !dfg.activities.length) {
+    container.innerHTML = '<div class="empty">Execute o pipeline para visualizar o DFG</div>';
+    return;
+  }
+
+  // Apenas estágios com eventos reais — exclui stages com count=0
+  const STAGES = dfg.activities.filter(a => a.count > 0).map(a => a.id);
+  const NW = 112, NH = 64, GAP = 52;
+  // Rework arcs ficam acima (SY = margem superior)
+  const SY = 52, SVG_H = SY + NH + 36;
+  const PAD = 46;
+  const SVG_W = PAD + STAGES.length * NW + (STAGES.length - 1) * GAP + PAD;
+  const NCY = SY + NH / 2;
+
+  const nx  = i => PAD + i * (NW + GAP);
+  const ncx = i => nx(i) + NW / 2;
+
+  // Lookup maps
+  const act = {};
+  dfg.activities.forEach(a => act[a.id] = a);
+  const em = {};
+  dfg.edges.forEach(e => em[`${e.source}|||${e.target}`] = e);
+
+  const maxEdge = Math.max(...dfg.edges.map(e => e.count), 1);
+  const ew  = cnt => +(Math.max(1.5, 1.5 + (cnt / maxEdge) * 5.5)).toFixed(1);
+  const ecol = cnt => {
+    const t = cnt / maxEdge;
+    if (t > 0.7) return '#0C447C';
+    if (t > 0.35) return '#185FA5';
+    return '#7AADD6';
+  };
+
+  function nodeColors(a) {
+    if (a.is_constraint) return { fill:'#FFF3E0', stroke:'#E65100', text:'#BF360C' };
+    const u = a.utilization || 0;
+    if (u >= 0.8)  return { fill:'#FEEEEE', stroke:'#C0392B', text:'#922B21' };
+    if (u >= 0.55) return { fill:'#FFFBEC', stroke:'#B7950B', text:'#7D6608' };
+    return { fill:'#F2F8FF', stroke:'#2E86C1', text:'#1A5276' };
+  }
+
+  // Nomes longos quebrados em duas linhas — usa abbrev da API se disponível
+  // Fallback para nomes que não cabem em uma linha (> ~12 chars)
+  function dfgLines(stage, actObj) {
+    const ab = actObj?.abbrev || stage;
+    if (ab.length <= 12) return [ab];
+    const mid = Math.ceil(ab.length / 2);
+    const sp = ab.lastIndexOf(' ', mid);
+    return sp > 0 ? [ab.slice(0, sp), ab.slice(sp + 1)] : [ab.slice(0, mid) + '-', ab.slice(mid)];
+  }
+
+  let s = `<svg viewBox="0 0 ${SVG_W} ${SVG_H}" xmlns="http://www.w3.org/2000/svg"
+    style="width:100%;height:auto;display:block;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif">
+<defs>
+  <marker id="dfg-arr" markerWidth="9" markerHeight="6" refX="8" refY="3" orient="auto">
+    <polygon points="0 0,9 3,0 6" fill="#185FA5"/>
+  </marker>
+  <marker id="dfg-arr-rw" markerWidth="9" markerHeight="6" refX="8" refY="3" orient="auto">
+    <polygon points="0 0,9 3,0 6" fill="#C0392B"/>
+  </marker>
+  <marker id="dfg-arr-faint" markerWidth="9" markerHeight="6" refX="8" refY="3" orient="auto">
+    <polygon points="0 0,9 3,0 6" fill="#C8C6BE"/>
+  </marker>
+</defs>`;
+
+  // ── Forward edges ──────────────────────────────────────────────────────
+  STAGES.forEach((stage, i) => {
+    if (i >= STAGES.length - 1) return;
+    const next  = STAGES[i + 1];
+    const edge  = em[`${stage}|||${next}`];
+    const cnt   = edge ? edge.count : 0;
+    const col   = edge ? ecol(cnt) : '#C8C6BE';
+    const arrId = edge ? 'dfg-arr' : 'dfg-arr-faint';
+    const w     = edge ? ew(cnt) : 1.2;
+    const x1    = nx(i) + NW, x2 = nx(i + 1) - 10, y = NCY;
+    s += `<line x1="${x1}" y1="${y}" x2="${x2}" y2="${y}"
+      stroke="${col}" stroke-width="${w}" marker-end="url(#${arrId})"/>`;
+    if (cnt > 0) {
+      s += `<text x="${(x1+x2)/2}" y="${y - 6}" text-anchor="middle"
+        font-size="10" fill="#6B7280">${cnt}</text>`;
+    }
+  });
+
+  // ── Rework edges (arcos curvados acima) ────────────────────────────────
+  dfg.edges.forEach(e => {
+    const si = STAGES.indexOf(e.source), ti = STAGES.indexOf(e.target);
+    if (ti >= si || si < 0 || ti < 0) return;
+    const x1 = ncx(si), x2 = ncx(ti);
+    const cpY = SY - 28 - Math.abs(si - ti) * 4;
+    const w = Math.max(1.2, ew(e.count) * 0.55).toFixed(1);
+    s += `<path d="M${x1},${SY} C${x1},${cpY} ${x2},${cpY} ${x2},${SY}"
+      fill="none" stroke="#C0392B" stroke-width="${w}"
+      stroke-dasharray="5,3" marker-end="url(#dfg-arr-rw)"/>`;
+    s += `<text x="${(x1+x2)/2}" y="${cpY-4}" text-anchor="middle"
+      font-size="10" fill="#C0392B">${e.count} ↩</text>`;
+  });
+
+  // ── Start ● ───────────────────────────────────────────────────────────
+  const startCnt = Object.values(dfg.start_activities).reduce((a,b)=>a+b,0);
+  const sx = PAD - 32;
+  s += `<circle cx="${sx}" cy="${NCY}" r="13" fill="#185FA5" stroke="#0C447C" stroke-width="1.5"/>
+<text x="${sx}" y="${NCY+1}" text-anchor="middle" dominant-baseline="middle"
+  font-size="10" fill="white" font-weight="700">▶</text>
+<text x="${sx}" y="${NCY+22}" text-anchor="middle" font-size="9" fill="#9CA3AF">${startCnt}</text>
+<line x1="${sx+13}" y1="${NCY}" x2="${PAD-10}" y2="${NCY}"
+  stroke="#185FA5" stroke-width="2" marker-end="url(#dfg-arr)"/>`;
+
+  // ── End ■ ─────────────────────────────────────────────────────────────
+  const endCnt = Object.values(dfg.end_activities).reduce((a,b)=>a+b,0);
+  const ex = SVG_W - PAD + 32;
+  s += `<line x1="${nx(4)+NW}" y1="${NCY}" x2="${ex-10}" y2="${NCY}"
+  stroke="#185FA5" stroke-width="2" marker-end="url(#dfg-arr)"/>
+<circle cx="${ex}" cy="${NCY}" r="13" fill="#185FA5" stroke="#0C447C" stroke-width="1.5"/>
+<text x="${ex}" y="${NCY+1}" text-anchor="middle" dominant-baseline="middle"
+  font-size="10" fill="white" font-weight="700">■</text>
+<text x="${ex}" y="${NCY+22}" text-anchor="middle" font-size="9" fill="#9CA3AF">${endCnt}</text>`;
+
+  // ── Nodes ─────────────────────────────────────────────────────────────
+  STAGES.forEach((stage, i) => {
+    const a   = act[stage] || { count:0, mean_duration:0, is_constraint:false, utilization:0 };
+    const col = nodeColors(a);
+    const x   = nx(i), cx = ncx(i), y = SY;
+    const bw  = NW - 16;
+    const sw  = a.is_constraint ? '2.5' : '1.5';
+
+    // Sombra sutil
+    s += `<rect x="${x+2}" y="${y+2}" width="${NW}" height="${NH}" rx="6"
+      fill="#DDD9CF" opacity="0.35"/>`;
+    // Nó
+    s += `<rect x="${x}" y="${y}" width="${NW}" height="${NH}" rx="6"
+      fill="${col.fill}" stroke="${col.stroke}" stroke-width="${sw}"/>`;
+
+    // Nome (uma ou duas linhas) — abbrev da API, com quebra automática se > 12 chars
+    const lines = dfgLines(stage, act[stage]);
+    if (lines.length === 2) {
+      s += `<text x="${cx}" y="${y+16}" text-anchor="middle" font-size="11"
+        font-weight="600" fill="${col.text}">${lines[0]}</text>
+<text x="${cx}" y="${y+27}" text-anchor="middle" font-size="11"
+  font-weight="600" fill="${col.text}">${lines[1]}</text>`;
+    } else {
+      s += `<text x="${cx}" y="${y+22}" text-anchor="middle" font-size="11"
+        font-weight="600" fill="${col.text}">${lines[0]}</text>`;
+    }
+
+    // Linha divisória
+    s += `<line x1="${x+8}" y1="${y+34}" x2="${x+NW-8}" y2="${y+34}"
+      stroke="${col.stroke}" stroke-width="0.5" opacity="0.4"/>`;
+
+    // Frequência + WT médio
+    s += `<text x="${cx-3}" y="${y+47}" text-anchor="end" font-size="10"
+      font-weight="600" fill="${col.text}">${a.count}×</text>
+<text x="${cx+3}" y="${y+47}" text-anchor="start" font-size="9"
+  fill="#9CA3AF">${a.mean_duration}d</text>`;
+
+    // Barra de utilização (fundo + fill)
+    s += `<rect x="${x+8}" y="${y+NH-9}" width="${bw}" height="4" rx="2"
+      fill="${col.stroke}" opacity="0.12"/>
+<rect x="${x+8}" y="${y+NH-9}"
+  width="${+(bw * Math.min(a.utilization||0,1)).toFixed(1)}" height="4" rx="2"
+  fill="${col.stroke}"/>`;
+
+    // Estrela restrição ativa
+    if (a.is_constraint) {
+      s += `<text x="${x+NW-7}" y="${y+13}" text-anchor="end" font-size="13"
+        fill="${col.text}">★</text>`;
+    }
+  });
+
+  s += '</svg>';
+
+  // Legenda
+  const c = dfg.activities.find(a => a.is_constraint);
+  const legend = `<div style="display:flex;gap:14px;flex-wrap:wrap;margin-top:10px;font-size:10px;color:var(--muted);align-items:center">
+    <span style="font-weight:600;color:var(--text)">Legenda:</span>
+    <span><span style="display:inline-block;width:11px;height:11px;border:1.5px solid #2E86C1;background:#F2F8FF;border-radius:2px;vertical-align:middle;margin-right:3px"></span>ρ &lt; 0.55</span>
+    <span><span style="display:inline-block;width:11px;height:11px;border:1.5px solid #B7950B;background:#FFFBEC;border-radius:2px;vertical-align:middle;margin-right:3px"></span>ρ 0.55–0.8</span>
+    <span><span style="display:inline-block;width:11px;height:11px;border:1.5px solid #C0392B;background:#FEEEEE;border-radius:2px;vertical-align:middle;margin-right:3px"></span>ρ ≥ 0.8</span>
+    <span><span style="display:inline-block;width:11px;height:11px;border:2.5px solid #E65100;background:#FFF3E0;border-radius:2px;vertical-align:middle;margin-right:3px"></span>★ Restrição ativa (ToC)</span>
+    <span style="margin-left:4px">Arcos: espessura = frequência directly-follows · barra interna = utilização ρ</span>
+  </div>
+  ${c ? `<div style="font-size:11px;color:var(--muted);margin-top:5px">
+    ${dfg.total_cases} casos · fitness = <strong>${dfg.fitness}</strong> · retrabalho = <strong>${dfg.rework_rate_pct}%</strong> ·
+    a* = <strong style="color:var(--amber)">${c.id}</strong> (ρ=${c.utilization}, E[W]=${c.mean_duration}d, score=${c.constraint_score})
+  </div>` : ''}`
+
+  container.innerHTML = `<div style="overflow-x:auto;padding:4px 0">${s}</div>${legend}`;
+}
+
+// ── Pseudo-árvore ADOPT ───────────────────────────────────────────────────
+function renderAgentTree(d) {
+  const el = document.getElementById('agent-tree-svg');
+  if (!el || !d || !d.assignments || !d.assignments.length) return;
+
+  const AS = d.assignments;
+  const N  = AS.length;
+
+  // Layout
+  const W = 940, H = 210;
+  const R = 36;           // raio do círculo do agente
+  const CY = 105;         // centro vertical dos nós
+  const step = W / (N + 1);
+
+  const cx = i => step * (i + 1);
+
+  // Tipos de mensagens por aresta (alternados para não sobrecarregar)
+  const MSG_FWD  = ['VALUE', 'THRESHOLD'];
+  const MSG_BWD  = ['COST', 'COST'];
+  const MSG_BIDI = ['CONSTRAINT-STATE'];
+
+  function col(a) {
+    if (a.is_constraint) return { c:'#E65100', bg:'#FFF3E0', t:'#BF360C', ring:'#E65100' };
+    const u = a.utilization || 0;
+    if (u >= 0.8)  return { c:'#B91C1C', bg:'#FEF2F2', t:'#7F1D1D', ring:'#EF4444' };
+    if (u >= 0.55) return { c:'#B45309', bg:'#FFFBEB', t:'#78350F', ring:'#F59E0B' };
+    return          { c:'#1D4ED8', bg:'#EFF6FF', t:'#1E3A8A', ring:'#3B82F6' };
+  }
+
+  // Helpers SVG
+  const ff = `font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif"`;
+
+  let s = `<svg viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg"
+    style="width:100%;height:auto;display:block;overflow:visible">
+<defs>
+  <marker id="at-fwd" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto">
+    <polygon points="0 0,8 3,0 6" fill="#1D4ED8"/>
+  </marker>
+  <marker id="at-bwd" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto">
+    <polygon points="0 0,8 3,0 6" fill="#D97706"/>
+  </marker>
+  <marker id="at-cs" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto">
+    <polygon points="0 0,8 3,0 6" fill="#7C3AED"/>
+  </marker>
+</defs>`;
+
+  // ── Arestas ───────────────────────────────────────────────────────────
+  AS.forEach((a, i) => {
+    if (i >= N - 1) return;
+    const x1 = cx(i) + R + 2, x2 = cx(i + 1) - R - 10;
+    const mx = (x1 + x2) / 2;
+
+    // VALUE + THRESHOLD: pai → filho (acima)
+    s += `<line x1="${x1}" y1="${CY - 13}" x2="${x2}" y2="${CY - 13}"
+      stroke="#1D4ED8" stroke-width="1.8" marker-end="url(#at-fwd)"/>`;
+    s += `<text x="${mx}" y="${CY - 18}" text-anchor="middle" font-size="9" fill="#1D4ED8" ${ff}>VALUE · THRESHOLD</text>`;
+
+    // COST: filho → pai (abaixo)
+    s += `<line x1="${x2}" y1="${CY + 13}" x2="${x1}" y2="${CY + 13}"
+      stroke="#D97706" stroke-width="1.8" marker-end="url(#at-bwd)"/>`;
+    s += `<text x="${mx}" y="${CY + 24}" text-anchor="middle" font-size="9" fill="#D97706" ${ff}>COST</text>`;
+
+    // CONSTRAINT-STATE: bidirecional (linha pontilhada mais fina)
+    s += `<line x1="${x1 - 2}" y1="${CY}" x2="${x2 + 2}" y2="${CY}"
+      stroke="#7C3AED" stroke-width="1.2" stroke-dasharray="4,3" opacity="0.7"/>`;
+    s += `<text x="${mx}" y="${CY + 7}" text-anchor="middle" font-size="8" fill="#7C3AED" opacity="0.8" ${ff}>CS</text>`;
+  });
+
+  // ── Nós ───────────────────────────────────────────────────────────────
+  AS.forEach((a, i) => {
+    const x = cx(i);
+    const c = col(a);
+    const u = Math.min(a.utilization || 0, 1);
+
+    // Arco de utilização (fundo cinza)
+    const r2 = R + 8;
+    const circ = 2 * Math.PI * r2;
+    const arcFill = circ * u;
+    const offset  = circ * 0.25; // começa do topo
+    s += `<circle cx="${x}" cy="${CY}" r="${r2}" fill="none"
+      stroke="#E5E7EB" stroke-width="5"/>`;
+    s += `<circle cx="${x}" cy="${CY}" r="${r2}" fill="none"
+      stroke="${c.ring}" stroke-width="5" opacity="0.7"
+      stroke-dasharray="${arcFill.toFixed(1)} ${circ.toFixed(1)}"
+      stroke-dashoffset="${offset.toFixed(1)}"/>`;
+
+    // Sombra
+    s += `<circle cx="${x+2}" cy="${CY+2}" r="${R}" fill="#D1D5DB" opacity="0.35"/>`;
+    // Círculo principal
+    s += `<circle cx="${x}" cy="${CY}" r="${R}" fill="${c.c}" stroke="${c.t}" stroke-width="2"/>`;
+
+    // ID do agente (grande, branco)
+    s += `<text x="${x}" y="${CY - 7}" text-anchor="middle" dominant-baseline="middle"
+      font-size="16" font-weight="700" fill="white" ${ff}>${a.agent_id}</text>`;
+
+    // WIP limit
+    s += `<text x="${x}" y="${CY + 9}" text-anchor="middle"
+      font-size="10" fill="rgba(255,255,255,0.9)" ${ff}>WIP ${a.wip_limit}</text>`;
+
+    // ρ no arco (pequeno texto ao lado)
+    const uPct = Math.round(u * 100);
+    const angRad = (1 - u) * 2 * Math.PI - Math.PI / 2; // posição no arco
+    const tx = x + (r2 + 8) * Math.cos(angRad);
+    const ty = CY + (r2 + 8) * Math.sin(angRad);
+    s += `<text x="${tx.toFixed(0)}" y="${ty.toFixed(0)}" text-anchor="middle"
+      font-size="9" font-weight="600" fill="${c.ring}" ${ff}>${uPct}%</text>`;
+
+    // Nome do estágio (abaixo do círculo)
+    const sn = abbrev(a.stage);
+    s += `<text x="${x}" y="${CY + R + 16}" text-anchor="middle"
+      font-size="10" font-weight="600" fill="${c.c}" ${ff}>${sn}</text>`;
+
+    // Política (pill)
+    const pol = a.priority_policy || 'FIFO';
+    const pw = pol.length * 5.8 + 10;
+    s += `<rect x="${x - pw/2}" y="${CY + R + 20}" width="${pw}" height="13" rx="4"
+      fill="${c.bg}" stroke="${c.c}" stroke-width="1"/>`;
+    s += `<text x="${x}" y="${CY + R + 29}" text-anchor="middle"
+      font-size="8.5" fill="${c.t}" ${ff}>${pol}</text>`;
+
+    // Estrela da restrição ativa
+    if (a.is_constraint) {
+      s += `<text x="${x + R - 1}" y="${CY - R + 3}" text-anchor="middle"
+        font-size="14" fill="#FFF3E0" ${ff}>★</text>`;
+      s += `<text x="${x}" y="${CY - R - 14}" text-anchor="middle"
+        font-size="9" font-weight="700" fill="${c.c}" ${ff}>RAIZ / RESTRIÇÃO ATIVA</text>`;
+    }
+
+    // Lower bound (se disponível)
+    if (a.lower_bound != null) {
+      s += `<text x="${x}" y="${H - 4}" text-anchor="middle"
+        font-size="8.5" fill="#9CA3AF" ${ff}>lb=${a.lower_bound}</text>`;
+    }
+  });
+
+  // Legenda de mensagens
+  s += `
+<rect x="8" y="${H - 28}" width="920" height="22" rx="4" fill="#F9FAFB" opacity="0.9"/>
+<text x="14" y="${H - 14}" font-size="9" fill="#6B7280" ${ff}>Mensagens ADOPT:</text>
+<line x1="120" y1="${H-17}" x2="145" y2="${H-17}" stroke="#1D4ED8" stroke-width="1.8" marker-end="url(#at-fwd)"/>
+<text x="150" y="${H-13}" font-size="9" fill="#1D4ED8" ${ff}>VALUE (x_i, p_i) pai→filho</text>
+<line x1="290" y1="${H-17}" x2="315" y2="${H-17}" stroke="#D97706" stroke-width="1.8" marker-end="url(#at-bwd)"/>
+<text x="320" y="${H-13}" font-size="9" fill="#D97706" ${ff}>COST filho→pai</text>
+<line x1="430" y1="${H-17}" x2="455" y2="${H-17}" stroke="#1D4ED8" stroke-width="1.8" stroke-dasharray="2,2" marker-end="url(#at-fwd)"/>
+<text x="460" y="${H-13}" font-size="9" fill="#1D4ED8" ${ff}>THRESHOLD pai→filho</text>
+<line x1="590" y1="${H-17}" x2="615" y2="${H-17}" stroke="#7C3AED" stroke-width="1.2" stroke-dasharray="4,3" opacity="0.7"/>
+<text x="620" y="${H-13}" font-size="9" fill="#7C3AED" ${ff}>CONSTRAINT-STATE ⟨ρ, L, WT⟩ bidirecional</text>
+<text x="900" y="${H-13}" text-anchor="end" font-size="9" fill="#9CA3AF" ${ff}>Arco externo = ρ</text>`;
+
+  s += '</svg>';
+  el.innerHTML = s;
+}
+
+// ── Chart helpers ─────────────────────────────────────────────────────────
+function chartOpts(title, grouped) {
+  return {
+    responsive: true, maintainAspectRatio: false,
+    plugins: {
+      legend: { display: grouped, position: 'bottom',
+                labels: { font: { size: 10 }, boxWidth: 12, padding: 10 } },
+      title: { display: !!title, text: title, font: { size: 11, weight: '500' } },
+      tooltip: { bodyFont: { size: 11 }, titleFont: { size: 11 } },
+    },
+    scales: {
+      y: { grid: { color: '#f0eed6' }, ticks: { font: { size: 10 } } },
+      x: { grid: { display: false }, ticks: { font: { size: 10 } } },
+    },
+  };
+}
+
+function destroyChart(id) {
+  if (charts[id]) { charts[id].destroy(); delete charts[id]; }
+}
+</script>
+</body>
+</html>

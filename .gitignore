@@ -1,0 +1,11 @@
+# Dados (públicos, mas grandes: ver docs/hipoteses.md para reconstruir) e resultados
+ocels/
+output/
+ThePublicJiraDataset/
+# Ambiente e segredos
+.venv/
+.env
+__pycache__/
+.pytest_cache/
+.DS_Store
+.claude/

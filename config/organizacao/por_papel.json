@@ -1,0 +1,27 @@
+{
+  "name": "por_papel",
+  "description": "Papéis típicos de projetos de código aberto no Jira: contribuidores implementam; mantenedores revisam, integram e verificam. As equipes não são observáveis no log público (o responsável é pseudonimizado no conjunto de dados), então esta decomposição é uma PREMISSA, não evidência dos dados.",
+  "agents": [
+    {
+      "name": "Contribuidores",
+      "stages": ["Development"],
+      "responsibility": "Implementar correções e funcionalidades puxadas do backlog.",
+      "local_information": ["itens em desenvolvimento", "WIP e permanência no próprio estágio"],
+      "decisions": ["wip_limit", "priority"],
+      "resources": ["tempo dos contribuidores"],
+      "evidence": "premissa: papel de contribuidor no fluxo do Jira (Open → In Progress); unidade não observável no log"
+    },
+    {
+      "name": "Mantenedores",
+      "stages": ["Code Review", "QA Testing", "Staging"],
+      "responsibility": "Revisar, integrar e verificar contribuições antes da conclusão.",
+      "local_information": ["patches aguardando revisão", "itens em verificação", "WIP e permanência nos próprios estágios"],
+      "decisions": ["wip_limit", "priority"],
+      "resources": ["tempo dos mantenedores (committers)"],
+      "evidence": "premissa: papel de mantenedor/committer (Patch Available, verificação); unidade não observável no log"
+    }
+  ],
+  "environment": {
+    "Backlog": "fila de entrada: demanda ainda não puxada, sem unidade que a controle"
+  }
+}
